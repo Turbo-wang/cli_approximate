@@ -44,8 +44,8 @@ def read_cct(file_name):
 
 
 def build_graph(content, word):
-    G = nx.Graph() 
-    # nei_map = cct[word] 
+    G = nx.Graph()
+    # nei_map = cct[word]
     G.add_node(word)
     for key, value in content.items():
         for nei in value:
@@ -65,7 +65,7 @@ def constr_cliq_and_sense_con(cct, model):
     for key, value in cct.items():
         word_list.append(key)
     for word in word_list:
-        content = cct[word] 
+        content = cct[word]
         graph = build_graph(content, word)
         cliques = list(nx.clique.find_cliques(graph))
         word_sense_context[word] = cluster_kmeans_clique(word, cliques, model, 2)
@@ -78,7 +78,7 @@ def construct_clique(cct):
     for key, value in cct.items():
         word_list.append(key)
     for word in word_list:
-        content = cct[word] 
+        content = cct[word]
         graph = build_graph(content, word)
         cliques = list(nx.clique.find_cliques(graph))
         word_clique[word] = cliques
@@ -128,7 +128,7 @@ def cluster_kmeans_clique(word, word_clique, model, n_cluster):
         sense_context[label_].update(word_clique[index])
 
     # sense_context.remove(word)
-    return sense_context 
+    return sense_context
 
 
 def cluster_ap_clique(word, word_clique, model):
@@ -146,8 +146,8 @@ def cluster_ap_clique(word, word_clique, model):
         for con in contexts:
             if con not in model:
                 continue
-            con_vector += model[con] 
-        con_vector_avg = con_vector / len(contexts)    
+            con_vector += model[con]
+        con_vector_avg = con_vector / len(contexts)
         vector_clique.append(con_vector_avg)
     vector_clique = np.asarray(vector_clique, dtype='float32')
     #print(vector_clique)
@@ -169,7 +169,7 @@ def cluster_ap_clique(word, word_clique, model):
             sense_context[label_] = set()
         #sense_context[label_].update(word_clique)
     # sense_context.remove(word)
-    return sense_context   
+    return sense_context
 
 
 def build_word_sense_context(clique_file_name, model):
@@ -179,7 +179,7 @@ def build_word_sense_context(clique_file_name, model):
         cliques = json.load(clique_file_name)
     for key, value in cliques.items():
         word_sense_context[key] = cluster_clique(key, cliques[key], model)
-    return word_sense_context    
+    return word_sense_context
 
 
 def label_corpus(sentens, word_sense_context, model, file_name):
@@ -201,8 +201,8 @@ def label_corpus(sentens, word_sense_context, model, file_name):
                         context_vec = np.zeros(model.vector_size)
                         len_con = 0
                         for con in senten and con in model and con != word:
-                            context_vec += model[con] 
-                            len_con += 1                            
+                            context_vec += model[con]
+                            len_con += 1
                         context_vec_avg = context_vec / len_con
                         label = 0
                         mindistance = sys.maxsize
@@ -210,7 +210,7 @@ def label_corpus(sentens, word_sense_context, model, file_name):
                             vector = np.zeros(model.vector_size)
                             len_con = 0
                             for wo in value and wo in model:
-                                vector += model[wo] 
+                                vector += model[wo]
                                 len_con = 0
                             vector_avg = vector / len_con
                             dis = distance.cosine(vector_avg, context_vec_avg)
@@ -222,7 +222,7 @@ def label_corpus(sentens, word_sense_context, model, file_name):
                 f.write(new_word)
                 f.write("\t")
             f.write("\n")
-            # new_sentens.append(new_senten)       
+            # new_sentens.append(new_senten)
 
 
 def load_model_file(file_name):

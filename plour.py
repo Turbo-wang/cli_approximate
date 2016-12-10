@@ -28,13 +28,13 @@ def get_txt_line(file_name):
             tmp = re.split('\.|!|\?', line)
             for se in tmp:
                 if len(se.split()) > 60:
-                    subtmp = re.split(",|;", se) 
+                    subtmp = re.split(",|;", se)
                     for subse in subtmp:
                         sen = nltk.tokenize.wordpunct_tokenize(se)
                         yield sen
                 else:
                     sen = nltk.tokenize.wordpunct_tokenize(se)
-                    yield sen 
+                    yield sen
 
 
 def get_pku_ZN_line(file_name):
@@ -84,7 +84,7 @@ def build_graph(file_name, word_list, word_fre, language=None):
         H = nx.Graph()
         edges = combinations(sent, 2)
         H.add_edges_from(edges)
-        for edge in H.edges(): 
+        for edge in H.edges():
             word1 = edge[0]
             word2 = edge[1]
             PMI_det = 1 / (word_fre[word1] * word_fre[word2])
@@ -141,10 +141,33 @@ def save_cct(cct_file_name, cct_dict):
                 for w in value[nei]:
                     f.write(w)
                     f.write("\t")
-                f.write("\n")    
-            f.write("\n")    
+                f.write("\n")
+            f.write("\n")
 
- 
+
+def build_sparse_matrix_graph(sen_list, min_count):
+    word_to_index = {}
+    index_to_word = []
+    i = 0
+    word_fre = count_word_fre(sen_list)
+    for sen in sen_list:
+        for word in sen:
+            if word_fre[word] < min_count:
+                word_to_index[word] = i
+                index_to_word.append(i)
+                i += 1
+
+    matrix_graph = {}
+    weight_ = 10 ** len(str(len(index_to_word)))
+    for sen in sen_list:
+        edges = combinations(sen, 2)
+        for edge in edges:
+            word1, word2 = edge
+            if word_fre[word1] < min_count or word_fre[word2] < min_count:
+                break
+            else:
+                pass
+
 # if __name__ == '__main__':
     # yaml_file = 'graph_text0.1%_no_pmi_en_wiki'
     # G = nx.read_yaml(yaml_file)
