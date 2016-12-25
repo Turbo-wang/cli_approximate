@@ -7,9 +7,9 @@ import json
 import pickle
 import cct_to_clique
 import scipy.spatial.distance as distance
+import re
 
-
-corpus_dir = config.corpusDir    
+corpus_dir = config.corpusDir
 
 
 def process_test_file(file_name):
@@ -46,19 +46,19 @@ def get_word_label(word, context, sense_contexts, model_no_label):
     context_vect = np.zeros(model_no_label.vector_size)
     len_con = 0
     for con in context and con in model_no_label:
-           context_vec += model_no_label[con] 
+           context_vec += model_no_label[con]
            len_con += 1
-    context_vec_avg = context_vec / len_con   
+    context_vec_avg = context_vec / len_con
     sen_vec = []
-    distance = sys.maxsize 
+    distance = sys.maxsize
     len_con = 0
     can_label = 0
     for label, sense_context in sense_contexts.items():
         sense_vec = np.zeros(model_no_label)
         for con in sense_context and con in model_no_label:
-               sense_vec += model_no_label[con]  
+               sense_vec += model_no_label[con]
                len_con += 1
-        sen_vec_avg = sense_vec / len_con        
+        sen_vec_avg = sense_vec / len_con
         dis = distance.cosine(sen_vec_avg, context_vec_avg)
         if dis < distance:
             distance = dis
@@ -67,28 +67,33 @@ def get_word_label(word, context, sense_contexts, model_no_label):
 
 
 def filter_context(word, context):
-    can_sen = ""
-    sens = context.split(".")
+    can_sen = []
+    sens = re.split(".|?|!". context)
     for sen in sens:
         if "<b>" in sen:
-            can_sen = sen
-    
+            for word_sen in list(sen):
+                if word_sen != word or word_sen != "<b>" or word_sen != "</b>":
+                    can_sen.append(word_sen)
+    return " ".join(can_sen)
 
 
-
-def build_score_list():
+def build_score_list(model_no_label, model_labeled):
     contents = process_test_file("SCWS/rating.txt")
     word_sen_context = read_word_sense_context('test_word_sense_context', 'json')
     human_score_list = []
     compute_score_list = []
     for content in contents:
         human_score_list.append(content['score_human'])
-
-
-
-def build_x1_x2(contents):
-    x1 = []
-    x2 = []
+        word1 = content["word1"]
+        word2 = content["word2"]
+        context1 = content["word1_context"]
+        context2 = content["word2_context"]
+        word1_label = get_word_label(word1, filter_context(context1), word_sen_context[word1], model_no_label)
+        word2_label = get_word_label(word2, filter_context(context2), word_sen_context[word2], model_no_label)
+        vector1 = model_labeled[word1+"_"+str(word1_label)]
+        vector2 = model_labeled[word2+"_"+str(word2_label)]
+        compute_score_list.append(distance.cosine(vector1, vector2))
+    out_score = spearmanr(human_score_list, compute_score_list)
 
 
 
@@ -97,5 +102,6 @@ def spearman_rand(x1, x2):
     return scist.spearmanr(x1, x2)[0]
 
 if __name__ == '__main__':
-    contents = process_test_file('SCWS/ratings.txt')
-    print(contents)
+    # contents = process_test_file('SCWS/ratings.txt')
+    # for content in contents:
+    build_score_list()

@@ -14,8 +14,9 @@ from sklearn.cluster import AffinityPropagation
 from gensim.models import Word2Vec
 import scipy.spatial.distance as distance
 
+
 corpusDir = config.corpusDir
-save_file_name = config.save_file_name
+
 
 def read_cct(file_name):
     cct_map = {}
@@ -44,7 +45,7 @@ def read_cct(file_name):
 
 
 def build_graph(content, word):
-    G = nx.Graph()
+    G = nx.Graph(   )
     # nei_map = cct[word]
     G.add_node(word)
     for key, value in content.items():
@@ -59,30 +60,22 @@ def build_graph(content, word):
     return G
 
 
-def constr_cliq_and_sense_con(cct, model):
-    word_list = []
+def constr_cliq_and_sense_con(word_cliques_dict, model):
     word_sense_context = {}
-    for key, value in cct.items():
-        word_list.append(key)
-    for word in word_list:
-        content = cct[word]
-        graph = build_graph(content, word)
-        cliques = list(nx.clique.find_cliques(graph))
+    for word, cliques in word_cliques_dict.items():
         word_sense_context[word] = cluster_kmeans_clique(word, cliques, model, 2)
     return word_sense_context
 
 
-def construct_clique(cct):
-    word_list = []
-    word_clique = {}
-    for key, value in cct.items():
-        word_list.append(key)
-    for word in word_list:
-        content = cct[word]
+
+def construct_clique(cct, clique_file_name):
+    word_cliques_dict = {}
+    for word, content in cct.items():
         graph = build_graph(content, word)
         cliques = list(nx.clique.find_cliques(graph))
-        word_clique[word] = cliques
-    return word_clique
+        word_cliques_dict[str(word)] = cliques
+    save_json(word_cliques_dict, clique_file_name)
+    return word_cliques_dict
 
 
 def save_json(json_obj, file_name):
@@ -103,15 +96,16 @@ def cluster_kmeans_clique(word, word_clique, model, n_cluster):
         return []
     sense_context = {}
     if len(word_clique) == 1:
-        sense_context[0] = word_clique[0]
+        sense_context['0'] = word_clique[0]
         return sense_context
     for clique in word_clique:
         contexts = clique
         con_vector = np.zeros(model.vector_size)
         len_con = 0
-        for con in contexts and con in model:
-            len_con += 1
-            con_vector += model[con]
+        for con in contexts:
+            if con in model:
+                len_con += 1
+                con_vector += model[con]
         con_vector_avg = con_vector / len_con
         vector_clique.append(con_vector_avg)
     #af = AffinityPropagation(preference=-5).fit(vector_clique)
@@ -124,9 +118,10 @@ def cluster_kmeans_clique(word, word_clique, model, n_cluster):
         #print(label_)
         #label = str(label_)
         if label_ not in sense_context:
-            sense_context[label_] = set()
-        sense_context[label_].update(word_clique[index])
-
+            sense_context[str(label_)] = set()
+        sense_context[str(label_)].update(word_clique[index])
+    for key, value in sense_context.items():
+        sense_context[key] = list(value)
     # sense_context.remove(word)
     return sense_context
 
@@ -172,16 +167,6 @@ def cluster_ap_clique(word, word_clique, model):
     return sense_context
 
 
-def build_word_sense_context(clique_file_name, model):
-    cliques = {}
-    word_sense_context = {}
-    with open(os.path.join(corpus, clique_file_name)) as f:
-        cliques = json.load(clique_file_name)
-    for key, value in cliques.items():
-        word_sense_context[key] = cluster_clique(key, cliques[key], model)
-    return word_sense_context
-
-
 def label_corpus(sentens, word_sense_context, model, file_name):
     # new_sentens = []
     with open(os.path.join(corpusDir, file_name), 'w') as f:
@@ -200,18 +185,20 @@ def label_corpus(sentens, word_sense_context, model, file_name):
                     else:
                         context_vec = np.zeros(model.vector_size)
                         len_con = 0
-                        for con in senten and con in model and con != word:
-                            context_vec += model[con]
-                            len_con += 1
+                        for con in senten:
+                            if con in model and con != word:
+                                context_vec += model[con]
+                                len_con += 1
                         context_vec_avg = context_vec / len_con
-                        label = 0
+                        label = "0"
                         mindistance = sys.maxsize
                         for key, value in sense_context.items():
                             vector = np.zeros(model.vector_size)
                             len_con = 0
-                            for wo in value and wo in model:
-                                vector += model[wo]
-                                len_con = 0
+                            for wo in value:
+                                if wo in model:
+                                    vector += model[wo]
+                                    len_con += 1
                             vector_avg = vector / len_con
                             dis = distance.cosine(vector_avg, context_vec_avg)
                             if mindistance > dis:
@@ -238,24 +225,17 @@ def load_json_file(file_name):
     return json_obj
 
 
-if __name__ == '__main__':
-    file_name = config.file_name
-    sentens = plour.build_sent_list(os.path.join(corpusDir, file_name))
-    model = corpus_to_word2vec(sentens, "test.word2vec.model", True, {"size":5, "window":3, "min_count":1, "workers":2})
-    start = time.time()
+def main():
+    raw_file_name = config.file_name
+    sentens = plour.build_sent_list(raw_file_name)
     cct_file_name = config.cct_file_name
     cct = read_cct(cct_file_name)
-    model = load_model_file(corpusDir, config.model_file_name)
-    word_sense_context = constr_cliq_and_sense_con(cct, model)
-    print(word_sense_context)
-    #save_json(word_sense_context, "word_sense_context_part201004")
-    # word_sense_context = load_json_file(corpusDir, "word_sense_context_part201004")
-    # print(time.time() - start)
-    # # model_file_name = config.model_file_name
+    model = load_model_file(config.model_file_name)
+    clique_file_name = config.clique_file_name
+    word_cliques_dict = construct_clique(cct, clique_file_name)
+    word_sense_context = constr_cliq_and_sense_con(word_cliques_dict, model)
+    save_json(word_sense_context, config.word_sense_dict_file_name)
+    label_corpus(sentens, word_sense_context, model, config.label_file_name)
 
-    # # clique_file_name = config.clique_file_name
-    # save_file_name = config.save_file_name
-    # # model = load_model_file(corpusDir, file_name)
-    # # word_sense_context = build_word_sense_context(cliques_file_name, model)
-
-    label_corpus(sentens, word_sense_context, model, save_file_name)
+if __name__ == '__main__':
+    main()
